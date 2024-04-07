@@ -1,18 +1,32 @@
 import wisp.{type Request, type Response}
+import gleam/dynamic.{type Dynamic}
 import gleam/string_builder
 import gleam/http.{Get, Post}
 import gleam/string
 import app/web
 import gleam/result
-import gleam/list
+import gleam/json
 
+pub type Question {
+  Question(prompt: String, answer: String)
+}
+
+fn decode_question(json: Dynamic) -> Result(Question, dynamic.DecodeErrors) {
+  let decoder =
+    dynamic.decode2(
+      Question,
+      dynamic.field("prompt", dynamic.string),
+      dynamic.field("answer", dynamic.string),
+    )
+  decoder(json)
+}
 
 pub fn handle_request(req: Request) -> Response {
   use req <- web.middleware(req) 
 
   case wisp.path_segments(req){
     [] -> index(req)
-    ["purple"] -> handle_form_submission(req)
+    ["questions"] -> handle_questions(req)
     _ -> wisp.not_found()
     }
 
@@ -32,39 +46,48 @@ pub fn handle_request(req: Request) -> Response {
   |> wisp.html_body(html)
 }
 
-pub fn handle_form_submission(req: Request) -> Response {
-  // This middleware parses a `wisp.FormData` from the request body.
-  // It returns an error response if the body is not valid form data, or
-  // if the content-type is not `application/x-www-form-urlencoded` or
-  // `multipart/form-data`, or if the body is too large.
-  use formdata <- wisp.require_form(req)
+pub fn handle_questions(req: Request) -> Response {
+  use req <- web.middleware(req)
+  use <- wisp.require_method(req, Post)
 
-  // The list and result module are used here to extract the values from the
-  // form data.
-  // Alternatively you could also pattern match on the list of values (they are
-  // sorted into alphabetical order), or use a HTML form library.
+  // This middleware parses a `Dynamic` value from the request body.
+  // It returns an error response if the body is not valid JSON, or
+  // if the content-type is not `application/json`, or if the body
+  // is too large.
+  use json <- wisp.require_json(req)
+
   let result = {
-    use name <- result.try(list.key_find(formdata.values, "name"))
+    // The dynamic value can be decoded into a `Question` value.
+    use question <- result.try(decode_question(json))
 
-    let curr_name = wisp.escape_html(name) 
-    let generated_name = string.drop_left(from: curr_name, up_to: 1) 
-    let return_name = string.concat(["W", generated_name])
-
-   // let html = string_builder.from_string(return_name)
-    let greeting =
-      "Hi,  " <> wisp.escape_html(return_name) <> "!"
-    Ok(greeting)
+    // And then a JSON response can be created from the question.
+    let object =
+      json.object([
+        #("prompt", json.string(question.prompt)),
+        #("answer", json.string(question.answer)),
+        #("saved", json.bool(True)),
+        #("name", json.string(generate_name(question.answer))),
+      ])
+    Ok(json.to_string_builder(object))
   }
 
-  // An appropriate response is returned depending on whether the form data
-  // could be successfully handled or not.
+  // An appropriate response is returned depending on whether the JSON could be
+  // successfully handled or not.
   case result {
-    Ok(content) -> {
-      wisp.ok()
-      |> wisp.html_body(string_builder.from_string(content))
-    }
-    Error(_) -> {
-      wisp.bad_request()
-    }
+    Ok(json) -> wisp.json_response(json, 201)
+
+
+    // In a real application we would probably want to return some JSON error
+    // object, but for this example we'll just return an empty response.
+    Error(_) -> wisp.unprocessable_entity()
+  }
+}
+
+fn generate_name(n: String) -> String{
+  case n {
+    "A" -> "Wuhter"
+    "B" -> "Walnut"
+    "C" -> "Wishnut"
+    _ -> "Blue"
   }
 }
