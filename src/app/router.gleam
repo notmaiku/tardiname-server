@@ -11,7 +11,7 @@ pub type Question {
   Question(prompt: String, answer: String)
 }
 
-fn decode_person(json: Dynamic) -> Result(Question, dynamic.DecodeErrors) {
+fn decode_question(json: Dynamic) -> Result(Question, dynamic.DecodeErrors) {
   let decoder =
     dynamic.decode2(
       Question,
@@ -57,15 +57,16 @@ pub fn handle_questions(req: Request) -> Response {
   use json <- wisp.require_json(req)
 
   let result = {
-    // The dynamic value can be decoded into a `Person` value.
-    use person <- result.try(decode_person(json))
+    // The dynamic value can be decoded into a `Question` value.
+    use question <- result.try(decode_question(json))
 
-    // And then a JSON response can be created from the person.
+    // And then a JSON response can be created from the question.
     let object =
       json.object([
-        #("prompt", json.string(person.prompt)),
-        #("answer", json.string(person.answer)),
+        #("prompt", json.string(question.prompt)),
+        #("answer", json.string(question.answer)),
         #("saved", json.bool(True)),
+        #("name", json.string(generate_name(question.answer))),
       ])
     Ok(json.to_string_builder(object))
   }
@@ -75,8 +76,18 @@ pub fn handle_questions(req: Request) -> Response {
   case result {
     Ok(json) -> wisp.json_response(json, 201)
 
+
     // In a real application we would probably want to return some JSON error
     // object, but for this example we'll just return an empty response.
     Error(_) -> wisp.unprocessable_entity()
+  }
+}
+
+fn generate_name(n: String) -> String{
+  case n {
+    "Yogurt" -> "Wuhter"
+    "Hotdogs" -> "Walnut"
+    "Spam" -> "Wishnut"
+    _ -> "Blue"
   }
 }
