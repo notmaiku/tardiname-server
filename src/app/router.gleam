@@ -85,9 +85,9 @@ pub fn handle_questions(req: Request) -> Response {
 
 fn generate_name(n: String) -> String{
   case n {
-    "Yogurt" -> "Wuhter"
-    "Hotdogs" -> "Walnut"
-    "Spam" -> "Wishnut"
+    "A" -> "Wuhter"
+    "B" -> "Walnut"
+    "C" -> "Wishnut"
     _ -> "Blue"
   }
 }
