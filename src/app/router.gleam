@@ -15,7 +15,6 @@ fn decode_question(json: Dynamic) -> Result(Question, dynamic.DecodeErrors) {
   let decoder =
     dynamic.decode2(
       Question,
-      dynamic.field("prompt", dynamic.string),
       dynamic.field("answer", dynamic.string),
     )
   decoder(json)
@@ -63,7 +62,6 @@ pub fn handle_questions(req: Request) -> Response {
     // And then a JSON response can be created from the question.
     let object =
       json.object([
-        #("prompt", json.string(question.prompt)),
         #("answer", json.string(question.answer)),
         #("saved", json.bool(True)),
         #("name", json.string(generate_name(question.answer))),
